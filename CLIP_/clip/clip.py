@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from .model import build_model
 from .simple_tokenizer import SimpleTokenizer as _Tokenizer
+import pdb
 
 __all__ = ["available_models", "load", "tokenize"]
 _tokenizer = _Tokenizer()
@@ -26,9 +27,11 @@ _MODELS = {
 def _download(url: str, root: str = os.path.expanduser("~/.cache/clip")):
     os.makedirs(root, exist_ok=True)
     filename = os.path.basename(url)
+    # filename -- 'ViT-B-32.pt'
 
     expected_sha256 = url.split("/")[-2]
     download_target = os.path.join(root, filename)
+    # 'RN101.pt'
 
     if os.path.exists(download_target) and not os.path.isfile(download_target):
         raise RuntimeError(f"{download_target} exists and is not a regular file")

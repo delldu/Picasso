@@ -11,6 +11,7 @@ import torch
 from IPython.display import Image as Image_colab
 from IPython.display import display, SVG
 from PIL import Image
+import pdb
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--target_file", type=str,
@@ -20,6 +21,8 @@ args = parser.parse_args()
 
 
 def read_svg(path_svg, multiply=False):
+    pdb.set_trace()
+    
     device = torch.device("cuda" if (
         torch.cuda.is_available() and torch.cuda.device_count() > 0) else "cpu")
     canvas_width, canvas_height, shapes, shape_groups = pydiffvg.svg_to_scene(
