@@ -1,10 +1,3 @@
-import warnings
-
-warnings.filterwarnings('ignore')
-warnings.simplefilter('ignore')
-
-import argparse
-import math
 import os
 import sys
 import time
@@ -14,10 +7,10 @@ import numpy as np
 import PIL
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import wandb
 from PIL import Image
-from torchvision import models, transforms
+from torchvision import transforms
+
 from tqdm.auto import tqdm
 
 import config
@@ -27,9 +20,10 @@ from models.painter_params import Painter, PainterOptimizer
 import pdb
 
 def load_renderer(args, target_im=None, mask=None):
-    renderer = Painter(num_strokes=args.num_paths, args=args,
+    renderer = Painter(num_strokes=args.num_paths, 
+                       args=args,
                        num_segments=args.num_segments,
-                       imsize=args.image_scale,
+                       imsize=args.image_scale, # 224
                        device=args.device,
                        target_im=target_im,
                        mask=mask)
@@ -39,35 +33,26 @@ def load_renderer(args, target_im=None, mask=None):
 
 def get_target(args):
     # args.image_scale -- 224
-
-    target = Image.open(args.target) # target_images/camel.png
-    if target.mode == "RGBA": # False
-        # Create a white rgba background
-        new_image = Image.new("RGBA", target.size, "WHITE")
-        # Paste the image on the background.
-        new_image.paste(target, (0, 0), target)
-        target = new_image
-    target = target.convert("RGB")
-    masked_im, mask = utils.get_mask_u2net(args, target)
+    target = Image.open(args.target).convert("RGB") # target_images/camel.png
+    mask = utils.get_mask_u2net(args, target)
 
     transforms_ = []
     if target.size[0] != target.size[1]:
-        transforms_.append(transforms.Resize(
-            (args.image_scale, args.image_scale), interpolation=PIL.Image.BICUBIC))
+        transforms_.append(transforms.Resize((args.image_scale, args.image_scale), interpolation=PIL.Image.BICUBIC))
     else:
-        transforms_.append(transforms.Resize(
-            args.image_scale, interpolation=PIL.Image.BICUBIC))
+        transforms_.append(transforms.Resize(args.image_scale, interpolation=PIL.Image.BICUBIC))
         transforms_.append(transforms.CenterCrop(args.image_scale))
     transforms_.append(transforms.ToTensor())
     data_transforms = transforms.Compose(transforms_)
     target_ = data_transforms(target).unsqueeze(0).to(args.device)
+
     return target_, mask
 
 
 def main(args):
     loss_func = Loss(args)
     inputs, mask = get_target(args)
-    utils.log_input(0, inputs, args.output_dir)
+    utils.log_input(inputs, args.output_dir)
     renderer = load_renderer(args, inputs, mask)
 
     optimizer = PainterOptimizer(args, renderer)
@@ -78,7 +63,6 @@ def main(args):
     min_delta = 1e-5
     terminate = False
 
-    renderer.set_random_noise(0)
     img = renderer.init_image(stage=0)
     optimizer.init_optimizers()
 
@@ -86,20 +70,11 @@ def main(args):
 
     for epoch in epoch_range:
         epoch_range.refresh()
-        renderer.set_random_noise(epoch)
-
-        if args.lr_scheduler: # 0
-            optimizer.update_lr(counter)
 
         start = time.time()
         optimizer.zero_grad_()
         sketches = renderer.get_image().to(args.device)
-        losses_dict = loss_func(sketches, inputs.detach(),
-            # renderer.get_color_parameters(), 
-            # renderer, 
-            counter, 
-            # optimizer,
-        )
+        losses_dict = loss_func(sketches, inputs.detach(), counter)
         loss = sum(list(losses_dict.values()))
         loss.backward()
 
@@ -111,13 +86,7 @@ def main(args):
 
         if epoch % args.eval_interval == 0:
             with torch.no_grad():
-                losses_dict_eval = loss_func(sketches, inputs, 
-                    # renderer.get_color_parameters(), # []
-                    # renderer.get_points_parans(),  # len(renderer.get_points_parans()) -- 16
-                    counter, 
-                    # optimizer, 
-                    mode="eval")
-
+                losses_dict_eval = loss_func(sketches, inputs, counter, mode="eval")
                 loss_eval = sum(list(losses_dict_eval.values()))
                 configs_to_save["loss_eval"].append(loss_eval.item())
                 for k in losses_dict_eval.keys():
@@ -136,9 +105,7 @@ def main(args):
                         best_loss = loss_eval.item()
                         best_iter = epoch
                         terminate = False
-                        utils.plot_batch(
-                            inputs, sketches, args.output_dir, counter, 
-                            title="best_iter.jpg")
+                        utils.plot_batch(inputs, sketches, args.output_dir, counter, title="best_iter.jpg")
                         renderer.save_svg(args.output_dir, "best_iter")
 
                 if abs(cur_delta) <= min_delta:
@@ -146,17 +113,17 @@ def main(args):
                         break
                     terminate = True
 
-        if counter == 0 and args.attention_init: # args.attention_init -- 1
-            utils.plot_atten(renderer.get_attn(), renderer.get_thresh(), inputs, renderer.get_inds(),
-                             "{}/{}.jpg".format(args.output_dir, "attention_map"),
-                             args.saliency_model)
+        if counter == 0:
+            utils.plot_atten(renderer.get_attention_map(), 
+                             renderer.get_thresh(), 
+                             inputs, renderer.get_inds(),
+                             "{}/{}.jpg".format(args.output_dir, "attention_map"))
 
         counter += 1
 
     renderer.save_svg(args.output_dir, "final_svg")
     path_svg = os.path.join(args.output_dir, "best_iter.svg")
-    utils.log_sketch_summary_final(path_svg, args.device, best_iter, best_loss, 
-        "best total")
+    utils.log_sketch_summary_final(path_svg, args.device, best_iter, best_loss, "best total")
 
     return configs_to_save
 
@@ -169,7 +136,3 @@ if __name__ == "__main__":
         print(f"Unexpected error occurred:\n {err}")
         print(traceback.format_exc())
         sys.exit(1)
-    for k in configs_to_save.keys():
-        final_config[k] = configs_to_save[k]
-
-    np.save(f"{args.output_dir}/config.npy", final_config)

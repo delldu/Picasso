@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import clip
 from PIL import Image
 import numpy as np
@@ -40,7 +41,7 @@ def interpret(image, text, model, device, index=None):
         return cam
 
     image_relevance = image_relevance.reshape(1, 1, 7, 7)
-    image_relevance = torch.nn.functional.interpolate(image_relevance, size=224, mode='bilinear')
+    image_relevance = F.interpolate(image_relevance, size=224, mode='bilinear', antialias=True)
     image_relevance = image_relevance.reshape(224, 224).cuda().data.cpu().numpy()
     image_relevance = (image_relevance - image_relevance.min()) / (image_relevance.max() - image_relevance.min())
     image = image[0].permute(1, 2, 0).data.cpu().numpy()

@@ -62,7 +62,7 @@ def plot_batch(inputs, outputs, output_dir, step, title):
     plt.close()
 
 
-def log_input(epoch, inputs, output_dir):
+def log_input(inputs, output_dir):
     grid = make_grid(inputs.clone().detach(), normalize=True, pad_value=2)
     npgrid = grid.cpu().numpy()
     plt.imshow(np.transpose(npgrid, (1, 2, 0)), interpolation='nearest')
@@ -89,23 +89,11 @@ def log_sketch_summary_final(path_svg, device, epoch, loss, title):
                   *scene_args)
 
     img = img[:, :, 3:4] * img[:, :, :3] + \
-        torch.ones(img.shape[0], img.shape[1], 3,
-                   device=device) * (1 - img[:, :, 3:4])
+        torch.ones(img.shape[0], img.shape[1], 3, device=device) * (1 - img[:, :, 3:4])
     img = img[:, :, :3]
     plt.imshow(img.cpu().numpy())
     plt.axis("off")
     plt.title(f"{title} best res [{epoch}] [{loss}.]")
-    plt.close()
-
-
-def log_sketch_summary(sketch, title):
-    plt.figure()
-    grid = make_grid(sketch.clone().detach(), normalize=True, pad_value=2)
-    npgrid = grid.cpu().numpy()
-    plt.imshow(np.transpose(npgrid, (1, 2, 0)), interpolation='nearest')
-    plt.axis("off")
-    plt.title(title)
-    plt.tight_layout()
     plt.close()
 
 
@@ -115,34 +103,7 @@ def load_svg(path_svg):
     return canvas_width, canvas_height, shapes, shape_groups
 
 
-def read_svg(path_svg, device, multiply=False):
-    canvas_width, canvas_height, shapes, shape_groups = pydiffvg.svg_to_scene(path_svg)
-    pdb.set_trace()
-
-    if multiply:
-        canvas_width *= 2
-        canvas_height *= 2
-        for path in shapes:
-            path.points *= 2
-            path.stroke_width *= 2
-    _render = pydiffvg.RenderFunction.apply
-    scene_args = pydiffvg.RenderFunction.serialize_scene(
-        canvas_width, canvas_height, shapes, shape_groups)
-    img = _render(canvas_width,  # width
-                  canvas_height,  # height
-                  2,   # num_samples_x
-                  2,   # num_samples_y
-                  0,   # seed
-                  None,
-                  *scene_args)
-    img = img[:, :, 3:4] * img[:, :, :3] + \
-        torch.ones(img.shape[0], img.shape[1], 3,
-                   device=device) * (1 - img[:, :, 3:4])
-    img = img[:, :, :3]
-    return img
-
-
-def plot_attn_clip(attn, threshold_map, inputs, inds, output_path):
+def plot_attn_clip(attention_map, threshold_map, inputs, inds, output_path):
     # output_path = 'output_sketches/camel/camel_16strokes_seed0/attention_map.jpg'
 
     # currently supports one image (and not a batch)
@@ -157,8 +118,8 @@ def plot_attn_clip(attn, threshold_map, inputs, inds, output_path):
     plt.axis("off")
 
     plt.subplot(1, 3, 2)
-    plt.imshow(attn, interpolation='nearest', vmin=0, vmax=1)
-    plt.title("atn map")
+    plt.imshow(attention_map, interpolation='nearest', vmin=0, vmax=1)
+    plt.title("attention map")
     plt.axis("off")
 
     plt.subplot(1, 3, 3)
@@ -174,8 +135,8 @@ def plot_attn_clip(attn, threshold_map, inputs, inds, output_path):
     plt.close()
 
 
-def plot_atten(attn, threshold_map, inputs, inds, output_path, saliency_model):
-    plot_attn_clip(attn, threshold_map, inputs, inds, output_path)
+def plot_atten(attention_map, threshold_map, inputs, inds, output_path):
+    plot_attn_clip(attention_map, threshold_map, inputs, inds, output_path)
 
 
 def get_mask_u2net(args, pil_im):
@@ -215,11 +176,4 @@ def get_mask_u2net(args, pil_im):
     im = Image.fromarray((mask[:, :, 0]*255).astype(np.uint8)).convert('RGB')
     im.save(f"{args.output_dir}/mask.png")
 
-    im_np = np.array(pil_im)
-    im_np = im_np / im_np.max()
-    im_np = mask * im_np
-    im_np[mask == 0] = 1
-    im_final = (im_np / im_np.max() * 255).astype(np.uint8)
-    im_final = Image.fromarray(im_final)
-
-    return im_final, predict
+    return predict
