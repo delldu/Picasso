@@ -32,7 +32,7 @@ def parse_arguments():
     # =================================
     # =========== training ============
     # =================================
-    parser.add_argument("--num_iter", type=int, default=201,
+    parser.add_argument("--num_iter", type=int, default=2001,
                         help="number of optimization iterations")
     parser.add_argument("--num_stages", type=int, default=1,
                         help="training stages, you can train x strokes, then freeze them and train another x strokes etc.")
@@ -44,14 +44,14 @@ def parse_arguments():
     # =================================
     # ======== strokes params =========
     # =================================
-    parser.add_argument("--num_paths", type=int, default=16, help="number of strokes")
-    parser.add_argument("--stroke_width", type=float, default=1.5, help="stroke width")
+    parser.add_argument("--num_paths", type=int, default=32, help="number of strokes")
+    parser.add_argument("--stroke_width", type=float, default=2.0, help="stroke width")
     parser.add_argument("--control_points_per_seg", type=int, default=4)
     parser.add_argument("--num_segments", type=int, default=1,
                         help="number of segments for each stroke, \
                             each stroke is a bezier curve with 4 control points")
     parser.add_argument("--clip_model", type=str, default="ViT-B/32")
-    parser.add_argument("--xdog_intersec", type=int, default=1)
+    # parser.add_argument("--xdog_intersec", type=int, default=0)
     parser.add_argument("--softmax_temp", type=float, default=0.3)
 
     # =================================

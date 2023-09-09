@@ -12,13 +12,13 @@ class Loss(nn.Module):
         self.clip_conv_loss = args.clip_conv_loss # 1
         self.clip_fc_loss_weight = args.clip_fc_loss_weight # 0.1
         self.losses_to_apply = self.get_losses_to_apply() # ['clip_conv_loss']
+        # pdb.set_trace()
 
         self.loss_mapper = \
             {
                 "clip": CLIPLoss(args),
                 "clip_conv_loss": CLIPConvLoss(args)
             }
-        # ==> pdb.set_trace()
 
 
     def get_losses_to_apply(self):
@@ -35,8 +35,9 @@ class Loss(nn.Module):
 
         for loss_name in self.losses_to_apply:
             if loss_name in ["clip_conv_loss"]:
-                conv_loss = self.loss_mapper[loss_name](
-                    sketches, targets, mode)
+                # pdb.set_trace()
+                conv_loss = self.loss_mapper[loss_name](sketches, targets, mode)
+
                 for layer in conv_loss.keys():
                     losses_dict[layer] = conv_loss[layer]
             elif loss_name == "l2":
@@ -68,6 +69,7 @@ class CLIPLoss(nn.Module):
         augemntations.append(
             transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)))
         self.augment_trans = transforms.Compose(augemntations)
+        # pdb.set_trace()
 
         self.calc_target = True
         self.counter = 0
@@ -77,8 +79,10 @@ class CLIPLoss(nn.Module):
             targets_ = self.preprocess(targets).to(self.device)
             self.targets_features = self.model.encode_image(targets_).detach()
             self.calc_target = False
+            pdb.set_trace()
 
         if mode == "eval":
+            # pdb.set_trace()
             # for regular clip distance, no augmentations
             with torch.no_grad():
                 sketches = self.preprocess(sketches).to(self.device)
@@ -173,11 +177,11 @@ class CLIPConvLoss(nn.Module):
         augemntations.append(
             transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)))
         self.augment_trans = transforms.Compose(augemntations)
+        # pdb.set_trace()
 
         self.clip_fc_loss_weight = args.clip_fc_loss_weight
         self.counter = 0
 
-        # ==> pdb.set_trace()
 
     def forward(self, sketch, target, mode="train"):
         """

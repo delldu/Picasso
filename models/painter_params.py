@@ -48,13 +48,18 @@ class Painter(nn.Module):
         self.points_vars = []
 
         self.strokes_per_stage = self.num_paths # 16
-        self.xdog_intersec = args.xdog_intersec # 1
+        # self.xdog_intersec = args.xdog_intersec # 1
         
         self.clip_model = args.clip_model # 'ViT-B/32'
+
+        # pdb.set_trace()
         self.define_attention_input(target_im)
         self.mask = mask
+
+        # pdb.set_trace()
         self.attention_map = self.clip_attn() # shape -- (224, 224)
         
+        # pdb.set_trace()
         self.thresh = self.set_inds_clip() # shape -- (224, 224)
         self.strokes_counter = 0 # counts the number of calls to "get_path"        
         
@@ -182,6 +187,7 @@ class Painter(nn.Module):
         # target_im.size() -- [1, 3, 224, 224]
         # self.image_input_attn_clip.size() -- [1, 3, 224, 224]
         del model
+        # pdb.set_trace()
         
 
     def clip_attn(self):
@@ -191,6 +197,7 @@ class Painter(nn.Module):
         del model
 
         # (Pdb) type(attn_map) -- <class 'numpy.ndarray'>, attn_map.shape -- (224, 224)
+        # pdb.set_trace()
         return attn_map
 
         
@@ -199,18 +206,21 @@ class Painter(nn.Module):
         return e_x / e_x.sum() 
 
     def set_inds_clip(self):
-        attn_map = (self.attention_map - self.attention_map.min()) / (self.attention_map.max() - self.attention_map.min())
-        if self.xdog_intersec: # 1
-            xdog = XDoG_()
-            im_xdog = xdog(self.image_input_attn_clip[0].permute(1,2,0).cpu().numpy(), k=10)
-            intersec_map = (1 - im_xdog) * attn_map
-            attn_map = intersec_map
+        attn_map = (self.attention_map - self.attention_map.min()) \
+            / (self.attention_map.max() - self.attention_map.min())
+
+        # if self.xdog_intersec: # 1
+        #     xdog = XDoG_()
+        #     im_xdog = xdog(self.image_input_attn_clip[0].permute(1,2,0).cpu().numpy(), k=10)
+        #     intersec_map = (1 - im_xdog) * attn_map
+        #     attn_map = intersec_map
             
         attn_map_soft = np.copy(attn_map)
         attn_map_soft[attn_map > 0] = self.softmax(attn_map[attn_map > 0], 
             tau=self.softmax_temp)
         
         k = self.num_stages * self.num_paths # self.num_stages ===1, ==> 16
+
         self.inds = np.random.choice(range(attn_map.flatten().shape[0]), 
             size=k, replace=False, p=attn_map_soft.flatten())
         self.inds = np.array(np.unravel_index(self.inds, attn_map.shape)).T
@@ -219,6 +229,8 @@ class Painter(nn.Module):
         self.inds_normalised[:, 0] = self.inds[:, 1] / self.canvas_width
         self.inds_normalised[:, 1] = self.inds[:, 0] / self.canvas_height
         self.inds_normalised = self.inds_normalised.tolist()
+
+        # pdb.set_trace()
         return attn_map_soft
 
     def get_attention_map(self):
